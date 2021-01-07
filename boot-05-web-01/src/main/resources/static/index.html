@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<h1>hello!</h1>
+测试REST风格：
+<form action="/user" method="get">
+    <input value="REST-GET 提交" type="submit">
+</form>
+<form action="/user" method="post">
+    <input value="REST-POST 提交" type="submit">
+</form>
+<form action="/user" method="post">
+    <input name="_method" type="hidden" value="DELETE">
+    <input value="REST-DELETE 提交" type="submit">
+</form>
+<form action="/user" method="post">
+    <input name="_method" type="hidden" value="PUT">
+    <input value="REST-PUT 提交" type="submit">
+</form>
+
+<ul>
+    <a href="car/3/owner/lisi?age=18&interests=basketball&interests=game">car/{id}/owner/{username}</a>
+</ul>
+<br/>
+<form action="/save" method="post">
+    测试@RequestBody获取数据 <br/>
+    用户名：<input name="userName"/> <br>
+    邮箱：<input name="email"/>
+    <input type="submit" value="提交">
+</form>
+
+/cars/{path}?xxx=xxx&aaa=ccc 查询字符串。@RequestParam; <br/>
+/cars/path;low=34;brand=byd,audi,yd; 矩阵变量<br/>
+面试题：页面开发，cookie被禁用了，session里面的内容怎么使用；
+session.set(a,b)--->jsessionid--->cookie--->每次发请求携带。 如果cookie被禁，jsessionid找不到，session对象也找不到了
+url重写： /abc;jsessionid=xxx 把cookie的值使用矩阵变量的方式传递
+
+/boss/1/2 找boss 1号 下面的员工2号
+/boss/1;age=20/2;age=20 找1号 20岁 下面员工 2号 20岁
+矩阵变量要和路径一起看
+
+<a href="/cars/sell;low=34;brand=byd,audi,yd">@MatrixVariable(矩阵变量)</a>
+<a href="/cars/sell;low=34;brand=byd;brand=audi;brand=yd">@MatrixVariable(矩阵变量)</a>
+<a href="/boss/1;age=20/2;age=10">@MatrixVariable(矩阵变量) /boss/{bossId}</a>
+<br/>
+
+</body>
+</html>
