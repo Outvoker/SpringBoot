@@ -1,5 +1,6 @@
 package com.dave.boot.controller;
 
+import com.dave.boot.bean.Person;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.Cookie;
@@ -13,6 +14,17 @@ import java.util.Map;
  */
 @RestController
 public class ParameterTestController {
+
+    /**
+     * 数据绑定：页面提交的请求数据（GET、POST）都可以和对象属性进行绑定
+     * @param person
+     * @return
+     */
+    @PostMapping("/saveuser")
+    public Person saveUser(Person person){
+        return person;
+    }
+
     @GetMapping("/car/{id}/owner/{username}")
     public Map<String, Object> getCar(@PathVariable("id") Integer id,   //获取路径参数
                                       @PathVariable("username") String name,

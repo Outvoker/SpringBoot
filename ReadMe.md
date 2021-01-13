@@ -19,6 +19,7 @@
         - [SpringMVC自动配置概览](#springmvc%E8%87%AA%E5%8A%A8%E9%85%8D%E7%BD%AE%E6%A6%82%E8%A7%88)
         - [简单功能分析](#%E7%AE%80%E5%8D%95%E5%8A%9F%E8%83%BD%E5%88%86%E6%9E%90)
         - [请求参数处理](#%E8%AF%B7%E6%B1%82%E5%8F%82%E6%95%B0%E5%A4%84%E7%90%86)
+        - [数据响应与内容协商](#%E6%95%B0%E6%8D%AE%E5%93%8D%E5%BA%94%E4%B8%8E%E5%86%85%E5%AE%B9%E5%8D%8F%E5%95%86)
 
 <!-- /TOC -->
 
@@ -531,3 +532,53 @@ public class ParameterTestController {
 
 矩阵变量要和路径一起看
 
+##### 自定义对象参数
+
+可以自动类型转换与格式化，可以级联封装
+
+- 数据绑定：页面提交的请求数据（GET、POST）都可以和对象属性进行绑定
+- 原理：WebDataBinder利用它里面的Converters将请求数据转成指定的数据类型。再次封装（反射）到JavaBean中。
+
+### 4. 数据响应与内容协商
+
+#### 数据响应
+
+@ResponseBody ---> RequestResponseBodyMethodProcessor
+
+HTTPMessageConverter：看是否支持将此Class类型的对象，转为MediaType类型的数据。
+
+例如：Person对象转为JSON。或者JSON转为Person。
+
+MappingJackson2HttpMessageConverter可以转换任何对象为json。把对象转为JSON（利用底层的jackson的objectMapper转换）
+
+#### 内容协商
+
+内容协商：浏览器默认会以请求头的方式告诉服务器他能接受什么样的内容类型，q为权重
+
+![20210110141818](http://ruiimg.hifool.cn/img20210110141818.png)
+
+##### 1. 引入xml依赖
+
+引入依赖后就可以支持xml的返回
+
+```xml
+    <dependency>
+        <groupId>com.fasterxml.jackson.dataformat</groupId>
+        <artifactId>jackson-dataformat-xml</artifactId>
+    </dependency>
+```
+
+##### 2. 开启浏览器参数方式的内容协商功能
+
+```yml
+spring:
+  mvc:
+    contentnegotiation:
+      favor-parameter: true  #开启请求参数内容协商模式
+```
+
+##### 3. 自定义MessageConverter
+
+converter.DaveMessageConverter
+
+config.WebConfig.webMvcConfigurer.extendMessageConverters

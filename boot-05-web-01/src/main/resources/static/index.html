@@ -48,5 +48,15 @@ url重写： /abc;jsessionid=xxx 把cookie的值使用矩阵变量的方式传�
 <a href="/boss/1;age=20/2;age=10">@MatrixVariable(矩阵变量) /boss/{bossId}</a>
 <br/>
 
+测试封装POJO
+<form action="/saveuser" method="post">
+    姓名：<input name="userName" value="zhangsan"/> <br/>
+    年龄：<input name="age" value="18"/> <br/>
+    生日：<input name="birth" value="2020/12/10"/> <br/>
+    宠物姓名：<input name="pet.name" value="阿猫"/> <br/>
+    宠物年龄：<input name="pet.age" value="5"/> <br/>
+    <input type="submit" value="保存"/>
+</form>
+
 </body>
 </html>
