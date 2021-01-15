@@ -20,6 +20,14 @@
         - [简单功能分析](#%E7%AE%80%E5%8D%95%E5%8A%9F%E8%83%BD%E5%88%86%E6%9E%90)
         - [请求参数处理](#%E8%AF%B7%E6%B1%82%E5%8F%82%E6%95%B0%E5%A4%84%E7%90%86)
         - [数据响应与内容协商](#%E6%95%B0%E6%8D%AE%E5%93%8D%E5%BA%94%E4%B8%8E%E5%86%85%E5%AE%B9%E5%8D%8F%E5%95%86)
+        - [拦截器](#%E6%8B%A6%E6%88%AA%E5%99%A8)
+        - [文件上传](#%E6%96%87%E4%BB%B6%E4%B8%8A%E4%BC%A0)
+    - [数据访问](#%E6%95%B0%E6%8D%AE%E8%AE%BF%E9%97%AE)
+        - [SQL](#sql)
+        - [使用Druid数据源](#%E4%BD%BF%E7%94%A8druid%E6%95%B0%E6%8D%AE%E6%BA%90)
+        - [整合MyBatis](#%E6%95%B4%E5%90%88mybatis)
+        - [整合MyBatis-Plus完成CRUD](#%E6%95%B4%E5%90%88mybatis-plus%E5%AE%8C%E6%88%90crud)
+        - [NoSQL](#nosql)
 
 <!-- /TOC -->
 
@@ -582,3 +590,309 @@ spring:
 converter.DaveMessageConverter
 
 config.WebConfig.webMvcConfigurer.extendMessageConverters
+
+### 6. 拦截器
+
+```java
+
+/**
+ * 登陆检查
+ * 1. 配置好拦截器拦截哪些请求
+ * 2. 把这些配置放在容器中
+ */
+@Slf4j
+public class LoginInterceptor implements HandlerInterceptor {
+    /**
+     * 目标方法执行之前
+     * @param request
+     * @param response
+     * @param handler
+     * @return
+     * @throws Exception
+     */
+    @Override
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        String requestURI = request.getRequestURI();
+        log.info("preHandle拦截的请求是{}", requestURI);
+
+        //登录检查逻辑
+        HttpSession session = request.getSession();
+        Object loginUser = session.getAttribute("loginUser");
+        if(loginUser != null) return true;
+
+        //拦截住，未登录，跳转到登录页
+        request.setAttribute("msg", "请先登录");
+//        response.sendRedirect("/");
+        request.getRequestDispatcher("/").forward(request, response);
+        return false;
+    }
+
+    /**
+     * 目标方法执行完成之后
+     * @param request
+     * @param response
+     * @param handler
+     * @param modelAndView
+     * @throws Exception
+     */
+    @Override
+    public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler, ModelAndView modelAndView) throws Exception {
+        log.info("postHandle执行{}", modelAndView);
+    }
+
+    /**
+     * 页面渲染之后
+     * @param request
+     * @param response
+     * @param handler
+     * @param ex
+     * @throws Exception
+     */
+    @Override
+    public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) throws Exception {
+        log.info("afterCompletion执行异常{}", ex);
+    }
+}
+```
+
+```java
+/**
+ * 1. 编写一个拦截器实现HandlerInterceptor接口
+ * 2. 拦截器注册到容器中（实现WebMvcConfigurer的addInterceptors）
+ * 3. 指定拦截规则[如果是拦截所有，静态资源也会被拦截]
+ * 4.
+ */
+@Configuration
+public class AdminWebConfig implements WebMvcConfigurer {
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(new LoginInterceptor())
+                .addPathPatterns("/**") //所有请求都会被拦截，包括静态资源
+                .excludePathPatterns("/", "/login", "/css/**", "/fonts/**", "/images/**", "/js/**");    //放行的请求
+    }
+}
+
+```
+
+![20210114150958](http://ruiimg.hifool.cn/img20210114150958.png)
+
+原理：
+
+1. 根据当前请求，找到**HandlerExecutionChain**【可以处理请求的handler以及handler的所有 拦截器】
+2. 先来**顺序执行**所有拦截器的 preHandle方法
+   1. 如果当前拦截器prehandler返回为true。则执行下一个拦截器的preHandle
+   2. 如果当前拦截器返回为false。直接    倒序执行所有已经执行了的拦截器的  afterCompletion；
+3. **如果任何一个拦截器返回false。直接跳出不执行目标方法**
+4. **所有拦截器都返回True。执行目标方法**
+5. **倒序执行所有拦截器的postHandle方法。**
+6. **前面的步骤有任何异常都会直接倒序触发** afterCompletion
+7. 页面成功渲染完成以后，也会倒序触发 afterCompletion
+
+### 7. 文件上传
+
+```java
+@Controller
+@Slf4j
+public class FormTestController {
+
+    @GetMapping("/form_layouts")
+    public String form_layouts(){
+        return "form/form_layouts";
+    }
+
+    /**
+     * 自动封装上传过来的文件
+     * @param email
+     * @param username
+     * @param headerImg
+     * @param photos
+     * @return
+     */
+    @PostMapping("/upload")
+    public String upload(@RequestParam("email") String email,
+                         @RequestParam("username") String username,
+                         @RequestPart("headerImg") MultipartFile headerImg,
+                         @RequestPart("photos") MultipartFile[] photos) throws IOException {
+        log.info("上传的信息： email={}, username={}, headerImg={}, photos={}", email, username, headerImg.getSize(), photos.length);
+
+        if(!headerImg.isEmpty()){
+            //保存到文件服务器，oss服务器
+            String originalFilename = headerImg.getOriginalFilename();
+            headerImg.transferTo(new File("D:\\university\\work\\" + originalFilename));
+        }
+
+        if(photos.length > 0){
+            for (MultipartFile photo : photos) {
+                if(!photo.isEmpty()){
+                    String originalFilename = photo.getOriginalFilename();
+                    photo.transferTo(new File("D:\\university\\work\\" + originalFilename));
+                }
+            }
+        }
+        
+        return "main";
+    }
+}
+
+```
+
+## 数据访问
+
+### SQL
+
+#### 数据源的自动配置
+
+##### 导入JDBC场景
+
+```xml
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-data-jdbc</artifactId>
+    </dependency>
+```
+
+导入数据库驱动
+
+```xml
+    <dependency>
+        <groupId>mysql</groupId>
+        <artifactId>mysql-connector-java</artifactId>
+    </dependency>
+```
+
+注意版本对应
+
+##### 配置项
+
+```yml
+spring:
+  datasource:
+    url: jdbc:mysql://10.177.73.196/alg
+    username: root
+    password:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+```
+
+### 使用Druid数据源
+
+Druid：<https://github.com/alibaba/druid>
+
+#### starter
+
+```xml
+    <dependency>
+        <groupId>com.alibaba</groupId>
+        <artifactId>druid-spring-boot-starter</artifactId>
+        <version>1.1.17</version>
+    </dependency>
+```
+
+Druid配置application.yml
+
+```yml
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/db_account
+    username: root
+    password: 123456
+    driver-class-name: com.mysql.jdbc.Driver
+
+    druid:
+      aop-patterns: com.atguigu.admin.*  #监控SpringBean
+      filters: stat,wall     # 底层开启功能，stat（sql监控），wall（防火墙）
+
+      stat-view-servlet:   # 配置监控页功能
+        enabled: true
+        login-username: admin
+        login-password: admin
+        resetEnable: false
+
+      web-stat-filter:  # 监控web
+        enabled: true
+        urlPattern: /*
+        exclusions: '*.js,*.gif,*.jpg,*.png,*.css,*.ico,/druid/*'
+
+
+      filter:
+        stat:    # 对上面filters里面的stat的详细配置
+          slow-sql-millis: 1000
+          logSlowSql: true
+          enabled: true
+        wall:
+          enabled: true
+          config:
+            drop-table-allow: false
+```
+
+### 整合MyBatis
+
+MyBatis: <https://github.com/mybatis>
+
+idea插件：mybatisX
+
+#### 配置
+
+```xml
+    <dependency>
+        <groupId>org.mybatis.spring.boot</groupId>
+        <artifactId>mybatis-spring-boot-starter</artifactId>
+        <version>2.1.4</version>
+    </dependency>
+```
+
+```yml
+# 配置mybatis规则
+mybatis:
+#  config-location: classpath:mybatis/mybatis-config.xml #全局配置文件位置
+  mapper-locations: classpath:mybatis/mapper/*.xml  #sql映射文件位置
+  configuration:
+    map-underscore-to-camel-case: true  #驼峰命名规则
+
+```
+
+不推荐写全局配置文件，直接在configuration中添加配置即可
+
+#### 最佳实战
+
+1. 引入mybatis-starter
+2. 配置application.yaml中，指定mapper-location位置即可
+3. 编写Mapper接口并标注@Mapper注解
+4. 简单方法直接注解方式
+5. 复杂方法编写mapper.xml进行绑定映射
+
+### 整合MyBatis-Plus完成CRUD
+
+#### 什么是MyBatis-Plus
+
+MyBatis-Plus是一个MyBatis的增强工具，在MyBatis的基础上只做增强不做改变，为简化开发、提高效率而生。
+
+官网：<baomidou.com>
+
+```xml
+    <dependency>
+        <groupId>com.baomidou</groupId>
+        <artifactId>mybatis-plus-boot-starter</artifactId>
+        <version>Latest Version</version>
+    </dependency>
+```
+
+优点：
+
+- 只需要我们的Mapper继承BaseMapper就可以拥有CRUD能力
+
+### NoSQL
+
+#### Redis
+
+官网：<http://redis.cn/>
+
+Redis 是一个开源（BSD许可）的，内存中的数据结构存储系统，它可以用作数据库、缓存和消息中间件。 它支持多种类型的数据结构，如 字符串（strings）， 散列（hashes）， 列表（lists）， 集合（sets）， 有序集合（sorted sets） 与范围查询， bitmaps， hyperloglogs 和 地理空间（geospatial） 索引半径查询。 Redis 内置了 复制（replication），LUA脚本（Lua scripting）， LRU驱动事件（LRU eviction），事务（transactions） 和不同级别的 磁盘持久化（persistence）， 并通过 Redis哨兵（Sentinel）和自动 分区（Cluster）提供高可用性（high availability）。
+
+##### 配置
+
+```xml
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-data-redis</artifactId>
+    </dependency>
+```
